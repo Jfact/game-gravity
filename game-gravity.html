@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Gravity and Fuel Simulation</title>
+		<style>
+				body {
+						display: flex;
+						flex-direction: column;
+						align-items: center;
+						justify-content: center;
+						height: 100vh;
+						margin: 0;
+				}
+				#canvas {
+						border: 1px solid #000;
+				}
+				select, input {
+						margin: 5px;
+				}
+		</style>
+</head>
+<body>
+<select id="gravity-select">
+		<option value="" disabled selected>Select a celestial body</option>
+</select>
+<select id="fuel-select">
+		<option value="" disabled selected>Select rocket fuel type</option>
+		<option value="1.2">Solid Rocket Fuel</option>
+		<option value="1.5">Liquid Rocket Fuel</option>
+</select>
+<input type="number" id="mass-input" placeholder="Enter mass of the cube (kg)" min="0">
+<input type="number" id="fuel-mass-input" placeholder="Enter mass of the fuel (kg)" min="0">
+<p id="gravity-result">Select a celestial body to see its gravity.</p>
+<canvas id="canvas" width="800" height="400"></canvas>
+
+<script>
+		// Define gravity data for different celestial bodies
+		const gravityData = [
+				{ name: "Sun", gravity: 274 },
+				{ name: "Mercury", gravity: 3.7 },
+				{ name: "Venus", gravity: 8.87 },
+				{ name: "Earth", gravity: 9.81 },
+				{ name: "Earth - Moon", gravity: 1.62 },
+				{ name: "Mars", gravity: 3.71 },
+				{ name: "Mars - Phobos", gravity: 0.0057 },
+				{ name: "Mars - Deimos", gravity: 0.003 },
+				{ name: "Jupiter", gravity: 24.79 },
+				{ name: "Jupiter - Io", gravity: 1.796 },
+				{ name: "Jupiter - Europa", gravity: 1.314 },
+				{ name: "Jupiter - Ganymede", gravity: 1.428 },
+				{ name: "Jupiter - Callisto", gravity: 1.235 },
+				{ name: "Saturn", gravity: 10.44 },
+				{ name: "Saturn - Titan", gravity: 1.352 },
+				{ name: "Saturn - Enceladus", gravity: 0.113 },
+				{ name: "Uranus", gravity: 8.69 },
+				{ name: "Uranus - Titania", gravity: 0.379 },
+				{ name: "Uranus - Oberon", gravity: 0.347 },
+				{ name: "Neptune", gravity: 11.15 },
+				{ name: "Neptune - Triton", gravity: 0.779 },
+				{ name: "Pluto (dwarf planet)", gravity: 0.62 },
+				{ name: "Pluto - Charon", gravity: 0.279 }
+		];
+
+		// Get references to HTML elements
+		const selectElement = document.getElementById('gravity-select');
+		const fuelSelectElement = document.getElementById('fuel-select');
+		const massInputElement = document.getElementById('mass-input');
+		const fuelMassInputElement = document.getElementById('fuel-mass-input');
+		const canvas = document.getElementById('canvas');
+		const ctx = canvas.getContext('2d');
+
+		// Initialize simulation variables
+		let gravityValue = 9.81;  // Default gravity (Earth)
+		let fuelMultiplier = 1;  // Default fuel multiplier
+		let mass = 1;  // Default mass of the cube (kg)
+		let fuelMass = 1;  // Default mass of the fuel (kg)
+		let cubeX = 390;  // Initial X position of the cube
+		let cubeY = 180;  // Initial Y position of the cube (slightly above the horizon line)
+		const cubeSize = 20;  // Size of the cube (px)
+		const baseThrust = 1000;  // Base thrust in Newtons
+		let isUpPressed = false;  // Flag to check if up arrow is pressed
+		let distanceTraveled = 0;  // Distance traveled in kilometers
+		let speedY = 0;  // Vertical speed in m/s
+		const pixelsToKilometers = 0.001;  // Conversion factor from pixels to kilometers
+
+		// Function to draw the canvas
+		function draw() {
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+				// Draw the horizon line
+				ctx.beginPath();
+				ctx.moveTo(0, canvas.height / 2);
+				ctx.lineTo(canvas.width, canvas.height / 2);
+				ctx.strokeStyle = "#333";
+				ctx.stroke();
+
+				// Draw the cube
+				ctx.fillStyle = "#007bff";
+				ctx.fillRect(cubeX, cubeY, cubeSize, cubeSize);
+
+				// Set focus on the canvas
+				canvas.focus();
+		}
+
+		// Function to update the result label
+		function updateResultLabel() {
+				const selectedGravityText = selectElement.options[selectElement.selectedIndex]?.text || '';
+				const selectedFuelText = fuelSelectElement.options[fuelSelectElement.selectedIndex]?.text || '';
+				const totalMass = mass + fuelMass;
+				const thrustForce = baseThrust * fuelMultiplier;
+				const acceleration = thrustForce / totalMass;
+				document.getElementById('gravity-result').innerText = `Gravity: ${selectedGravityText.split('. ')[1]}, Fuel: ${selectedFuelText}, Cube Mass: ${mass} kg, Fuel Mass: ${fuelMass.toFixed(2)} kg, Total Mass: ${totalMass.toFixed(2)} kg, Thrust: ${thrustForce.toFixed(2)} N, Acceleration: ${acceleration.toFixed(2)} m/s², Distance Traveled: ${distanceTraveled.toFixed(2)} km`;
+		}
+
+		// Function to move the cube
+		function moveCube(event) {
+				if (fuelMass <= 0) return; // Prevent movement if no fuel
+
+				const totalMass = mass + fuelMass;
+				const thrustForce = baseThrust * fuelMultiplier;
+				const acceleration = thrustForce / totalMass;
+
+				switch (event.key) {
+						case "ArrowUp":
+								isUpPressed = true;
+								if (fuelMass > 0) {
+										const moveDistance = acceleration / 50; // Adjust for more reasonable movement
+										speedY -= moveDistance; // Move cube up
+										fuelMass -= 0.1; // Decrease fuel mass per frame
+										if (fuelMass < 0) fuelMass = 0; // Prevent negative fuel mass
+										distanceTraveled += Math.abs(moveDistance) * pixelsToKilometers; // Add to total distance traveled in kilometers
+										updateResultLabel();
+								}
+								break;
+						case "ArrowDown":
+								if (cubeY + cubeSize < canvas.height / 2) { // Check if below the horizon
+										const moveDistance = acceleration / 50; // Adjust for more reasonable movement
+										speedY += moveDistance; // Move cube down
+								}
+								break;
+						case "ArrowLeft":
+								cubeX -= acceleration / 50; // Adjust for more reasonable movement
+								break;
+						case "ArrowRight":
+								cubeX += acceleration / 50; // Adjust for more reasonable movement
+								break;
+				}
+
+				// Constrain the cube within the canvas boundaries
+				if (cubeX < 0) cubeX = 0;
+				if (cubeX + cubeSize > canvas.width) cubeX = canvas.width - cubeSize;
+				if (cubeY < 0) cubeY = 0;
+				if (cubeY + cubeSize > canvas.height / 2) cubeY = canvas.height / 2 - cubeSize;
+
+				draw();
+		}
+
+		// Function to handle the gravity effect
+		function applyGravity() {
+				if (!isUpPressed) {
+						const totalMass = mass + fuelMass;
+						const gravityForce = gravityValue * totalMass;
+						const gravityAcceleration = gravityForce / totalMass;
+						const gravityDrop = gravityAcceleration / 20; // Adjust this value to control the falling speed
+						speedY += gravityDrop;
+				}
+				cubeY += speedY;
+				if (cubeY + cubeSize > canvas.height / 2) {
+						cubeY = canvas.height / 2 - cubeSize;
+						speedY = 0; // Stop the cube when it hits the ground
+				}
+
+				draw();
+		}
+
+		// Event listener for keyboard input
+		document.addEventListener('keydown', moveCube);
+
+		// Event listener for keyup to detect when the "up" button is released
+		document.addEventListener('keyup', function(event) {
+				if (event.key === "ArrowUp") {
+						isUpPressed = false;
+				}
+		});
+
+		// Event listener for dropdown select (gravity)
+		selectElement.addEventListener('change', function() {
+				gravityValue = parseFloat(this.value);
+				updateResultLabel();
+				// Set focus on the canvas after selecting a gravity value
+				canvas.focus();
+		});
+
+		// Event listener for dropdown select (fuel type)
+		fuelSelectElement.addEventListener('change', function() {
+				fuelMultiplier = parseFloat(this.value);
+				updateResultLabel();
+				// Set focus on the canvas after selecting a fuel type
+				canvas.focus();
+		});
+
+		// Event listener for mass input
+		massInputElement.addEventListener('input', function() {
+				mass = parseFloat(this.value) || 1; // Default to 1 if input is invalid
+				updateResultLabel();
+				// Set focus on the canvas after entering mass
+				canvas.focus();
+		});
+
+		// Event listener for fuel mass input
+		fuelMassInputElement.addEventListener('input', function() {
+				fuelMass = parseFloat(this.value) || 1; // Default to 1 if input is invalid
+				updateResultLabel();
+				// Set focus on the canvas after entering fuel mass
+				canvas.focus();
+		});
+
+		// Populate dropdown options for gravity
+		gravityData.forEach((item, index) => {
+				const option = document.createElement('option');
+				option.value = item.gravity;
+				option.textContent = `${index + 1}. ${item.name} - ${item.gravity} m/s²`;
+				selectElement.appendChild(option);
+		});
+
+		// Initial draw call
+		draw();
+
+		// Set up the gravity application interval
+		setInterval(applyGravity, 50); // Adjust the interval for smoother falling
+</script>
+</body>
+</html>
